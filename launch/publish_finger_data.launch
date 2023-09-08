@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="last_hand" type="publish_finger_data.py" name="publish_finger_data" output="screen">
+    </node>
+</launch>
