@@ -4,18 +4,19 @@ from dynamixel_ops.msg import *
 from dynamixel_ops.vars import *
 from dynamixel_ops.utils import *
 from dynamixel_ops.comms import *
+import time
 
 DXL_IDS = [1]
 def pub_dynamixel_control(position):
-    pub = rospy.Publisher('dynamixelCmd', dynamixelCmd, queue_size=10)
+    pub = rospy.Publisher('/dynamixel_ops/dynamixelCmd', dynamixelCmd, queue_size=1)
     rospy.init_node('dynamixelControlNode', anonymous=True)
-    rate = rospy.Rate(200) # 10hz
+    rate = rospy.Rate(100) # 20hz
     while not rospy.is_shutdown():
-        init_ids(position, DXL_IDS)
-        if(position.pulses[0]<=4080):
-            position.pulses[0]+= 10
+        if(position.angle[0] < 2*3.14):
+            position.angle[0]+= 0.0025
         else:
-            position.pulses[0]= 0
+            position.angle[0]= 0
+            time.sleep(2)
         
         print(position)
         pub.publish(position)

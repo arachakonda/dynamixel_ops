@@ -44,3 +44,5 @@ REV_FACTOR = 0.229/60 # losely translating to 0.229 rev/min unit of Velocity-bas
 MAX_REV_VEL = 81/60 #losely translating to 81 rev/min limit of No Load Speed at 5.0 V
 MAX_VEL_PROF_VAL = int(MAX_REV_VEL/REV_FACTOR) #maximum velocity profile value for the given no_load speed
 #can the velocity profile can be dynamically adapted by taking the velocity data from the motor itself instead of no load speed?
+
+MAX_RETRIES = 3

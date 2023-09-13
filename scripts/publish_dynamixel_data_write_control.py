@@ -53,16 +53,16 @@ from dynamixel_ops.vars import *
 from dynamixel_ops.utils import *
 from dynamixel_ops.comms import *
 import time
+import threading  # Step 1: Import threading
 
 portHandler = PortHandler(DEVICENAME)
 packetHandler = PacketHandler(PROTOCOL_VERSION)
-#Initialize GroupSyncRead instace for Current, Position and Velocity
 groupSyncRead = GroupSyncRead(portHandler, packetHandler, ADDR_PRESENT_CURR, LEN_PRESENT_DATA)
-#Initialize GroupSyncWrite instance for Position only
 groupSyncWrite = GroupSyncWrite(portHandler, packetHandler, ADDR_GOAL_POS, LEN_GOAL_POS)
-#the order of the list is [mcpf, mcpa, pip, dip]
 DXL_IDS = [1]
 time.sleep(0.5)
+
+dynamixel_lock = threading.Lock()  # Step 2: Create a global lock
 
 def syncRead_dynamixelTelemetry(groupSyncRead, DXL_IDS, dT):
     #initialize IDs
@@ -82,46 +82,87 @@ def print_data(pos, vel, curr):
     print("------------------")
     pass
 
+#for publishing Telemetry data in standard units
 def convert_to_range(pulses, velocity, current):
-    #convert the pulses to radians
-    for i in range(len(pulses)):
-        pulses[i] = pulses[i] * 0.001533981
+    # Convert the inputs to lists for modification
+    pulses_list = list(pulses)
+    velocity_list = list(velocity)
+    current_list = list(current)
 
+    # Convert the pulses to radians
+    for i in range(len(pulses_list)):
+        pulses_list[i] = pulses_list[i] * 0.001533981
 
-    #if velocity value is greater than 2047, then it is a negative number
-    for i in range(len(velocity)):
-        if velocity[i] > 2047:
-            #convert the number from 16-bit unsigned to 16-bit signed
-            velocity[i] = (velocity[i] ^ 0xFFFF) + 1
-        else:
-            velocity[i] = velocity[i]
-        #convert the number to rad/sec
-        velocity[i] = velocity[i] * 0.229 * 0.104719755
+    # If velocity value is greater than 2047, then it is a negative number
+    for i in range(len(velocity_list)):
+        if velocity_list[i] > 2047:
+            # Convert the number from 16-bit unsigned to 16-bit signed
+            velocity_list[i] = -(4294967295 - velocity_list[i] + 1)
+        # Convert the number to rad/sec
+        velocity_list[i] = velocity_list[i] * 0.229 * 0.104719755
 
-    #if the current value is greater than 2352, then it is a negative number
-    for i in range(len(current)):
-        if current[i] > 2352:
-            #convert the number from 16-bit unsigned to 16-bit signed
-            current[i] = (current[i] ^ 0xFFFF) + 1
-        else:
-            current[i] = current[i]
-        #convert the number to mA
-        current[i] = current[i] * 2.69
+    # If the current value is greater than 2352, then it is a negative number
+    for i in range(len(current_list)):
+        if current_list[i] > 2352:
+            # Convert the number from 16-bit unsigned to 16-bit signed
+            current_list[i] = -(65535 - current_list[i] + 1)
+        # Convert the number to mA
+        current_list[i] = current_list[i] * 1
 
+    return pulses_list, velocity_list, current_list
+
+#for writing commands to dynamixel in dynamixel units
+def convert_from_range(radians, velocity, current):
+    # Convert the inputs to lists for modification
+    pulses_list = list(radians)
+    velocity_list = list(velocity)
+    current_list = list(current)
+
+    # Convert radian to pulses
+    for i in range(len(pulses_list)):
+        pulses_list[i] = int(pulses_list[i] * 651.8986469044037)
+
+    # Convert velocity from rad/sec to 16-bit signed
+    for i in range(len(velocity_list)):
+        velocity_list[i] = int(velocity_list[i] * 4.363323129985824)
+        if velocity_list[i] < 0:
+            # Convert the number from 16-bit signed to 16-bit unsigned
+            velocity_list[i] = velocity_list[i] + 4294967295
+
+    # Convert current from mA to 16-bit signed
+    for i in range(len(current_list)):
+        current_list[i] = int(current_list[i] * 1)
+        if current_list[i] < 0:
+            # Convert the number from 16-bit signed to 16-bit unsigned
+            current_list[i] = current_list[i] + 65536
+
+    return pulses_list, velocity_list, current_list
+
+class dynamixelTelemetryClass:
+    #defined to get telemetry data from dynamixels
+    def __init__(self, DXL_IDS=DXL_IDS):
+        self.id = DXL_IDS
+        self.angle = [0]*len(DXL_IDS)
+        self.velocity = [0]*len(DXL_IDS)
+        self.current = [0]*len(DXL_IDS)
 
     
-def pub_dynamixelTelemetry(groupSyncRead, DXL_IDS, dynTel):
-    pub_dynamixelTelemetry = rospy.Publisher('/dynamixel_ops/dynamixelTelemetry', dynamixelTelemetry, queue_size=10)
+def pub_dynamixelTelemetry(packetHandler, groupSyncRead, DXL_IDS, dynTel):
+    pub_dynamixelTelemetry = rospy.Publisher('/dynamixel_ops/dynamixelTelemetry', dynamixelTelemetry, queue_size=1)
+    pubObj = dynamixelTelemetry()
     rospy.init_node('pubw_pos_vel_curr', anonymous=True)
-    ros_freq = 20
+    ros_freq = 200
     rate = rospy.Rate(ros_freq) # 10hz
     while not rospy.is_shutdown():
         #read data from dynamixels
-        syncRead_dynamixelTelemetry(groupSyncRead, DXL_IDS, dynTel)
-        print_data(dynTel.pulses, dynTel.velocity, dynTel.current)
-        convert_to_range(dynTel.pulses, dynTel.velocity, dynTel.current)
+
+        with dynamixel_lock:  
+            syncRead_dynamixelTelemetry(groupSyncRead, DXL_IDS, dynTel)
+            print_data(dynTel.angle, dynTel.velocity, dynTel.current)
+        pubObj.angle, pubObj.velocity, pubObj.current = convert_to_range(dynTel.angle, dynTel.velocity, dynTel.current)
+        print_data(pubObj.angle, pubObj.velocity, pubObj.current)
         #publish data
-        pub_dynamixelTelemetry.publish(dynTel)
+        pub_dynamixelTelemetry.publish(pubObj)
         #sleep for enough time to match the frequency of publishing
         rate.sleep()
 
@@ -141,28 +182,30 @@ def pingDynamixels(packetHandler, DXL_IDS):
     return pingable_ids
 
 def write_dynamixelCmdCallback(data):
-    dxl_error = 0
-    dxl_comm_result = COMM_TX_FAIL
-    dxl_addparam_result = False
-    command_list = list(data.pulses)
-    for i in range(len(DXL_IDS)):
-        #param_goal = [DXL_LOBYTE(command_list[i]), DXL_HIBYTE(command_list[i])]
-        param_goal = [DXL_LOBYTE(DXL_LOWORD(command_list[i])), 
-                      DXL_HIBYTE(DXL_LOWORD(command_list[i])), 
-                      DXL_LOBYTE(DXL_HIWORD(command_list[i])),
-                      DXL_HIBYTE(DXL_HIWORD(command_list[i]))]
-        dxl_addparam_result = groupSyncWrite.addParam(DXL_IDS[i], param_goal)
-        if dxl_addparam_result != True:
-            print("[ID:%03d] groupSyncWrite addparam failed" % i)
+    with dynamixel_lock:  # Use the lock
+        dxl_error = 0
+        dxl_comm_result = COMM_TX_FAIL
+        dxl_addparam_result = False
+        angle_list, velocity_list, current_list = convert_from_range(data.angle, data.velocity, data.current)
+        command_list = angle_list
+        for i in range(len(DXL_IDS)):
+            #param_goal = [DXL_LOBYTE(command_list[i]), DXL_HIBYTE(command_list[i])]
+            param_goal = [DXL_LOBYTE(DXL_LOWORD(command_list[i])), 
+                        DXL_HIBYTE(DXL_LOWORD(command_list[i])), 
+                        DXL_LOBYTE(DXL_HIWORD(command_list[i])),
+                        DXL_HIBYTE(DXL_HIWORD(command_list[i]))]
+            dxl_addparam_result = groupSyncWrite.addParam(DXL_IDS[i], param_goal)
+            if dxl_addparam_result != True:
+                print("[ID:%03d] groupSyncWrite addparam failed" % i)
+            else:
+                print("[ID:%03d] groupSyncWrite addparam success" % i)
+        
+        dxl_comm_result = groupSyncWrite.txPacket()
+        if dxl_comm_result != COMM_SUCCESS:
+            print("failed to set command")
         else:
-            print("[ID:%03d] groupSyncWrite addparam success" % i)
-    
-    dxl_comm_result = groupSyncWrite.txPacket()
-    if dxl_comm_result != COMM_SUCCESS:
-        print("failed to set command")
-    else:
-        print("succeeded to set command")
-    groupSyncWrite.clearParam()
+            print("succeeded to set command")
+        groupSyncWrite.clearParam()
 
 def main():
     global portHandler, packetHandler, groupSyncRead, DXL_IDS
@@ -178,9 +221,9 @@ def main():
     #enable dynamixel torques
     enable_torques(portHandler, packetHandler, DXL_IDS)
     try:
-        dynTel = dynamixelTelemetry() 
+        dynTel = dynamixelTelemetryClass(DXL_IDS=DXL_IDS) 
         rospy.Subscriber('/dynamixel_ops/dynamixelCmd', dynamixelCmd, write_dynamixelCmdCallback)
-        pub_dynamixelTelemetry(groupSyncRead, DXL_IDS, dynTel)
+        pub_dynamixelTelemetry(packetHandler, groupSyncRead, DXL_IDS, dynTel)
     except rospy.ROSInterruptException:
         print("ROS Node Terminated")
     
