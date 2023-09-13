@@ -46,3 +46,5 @@ MAX_VEL_PROF_VAL = int(MAX_REV_VEL/REV_FACTOR) #maximum velocity profile value f
 #can the velocity profile can be dynamically adapted by taking the velocity data from the motor itself instead of no load speed?
 
 MAX_RETRIES = 3
+
+HOMING_OFFSET_ADDRESS = 20

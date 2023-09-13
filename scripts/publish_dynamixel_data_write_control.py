@@ -214,7 +214,9 @@ def main():
     #check if the dynamixels with ids in DXL_IDS are connected
     DXL_IDS = pingDynamixels(packetHandler, DXL_IDS)
     #set dynamixels to current control mode
-    setOpModes(portHandler, packetHandler, DXL_IDS, POSITION_CONTROL_MODE)
+    setOpModes(portHandler, packetHandler, DXL_IDS, EXTENDED_POSITION_CONTROL_MODE)
+    #set homing offset
+    setHomingOffset(portHandler, packetHandler, DXL_IDS)
     #add IDs for sync read of same data from multiple dynamixels
     add_SyncReadIDs(groupSyncRead, DXL_IDS)
     #sync read data from multiple dynamixels
@@ -224,7 +226,7 @@ def main():
         dynTel = dynamixelTelemetryClass(DXL_IDS=DXL_IDS) 
         rospy.Subscriber('/dynamixel_ops/dynamixelCmd', dynamixelCmd, write_dynamixelCmdCallback)
         pub_dynamixelTelemetry(packetHandler, groupSyncRead, DXL_IDS, dynTel)
-    except rospy.ROSInterruptException:
+    except:
         print("ROS Node Terminated")
     
     #disable dynamixel torques

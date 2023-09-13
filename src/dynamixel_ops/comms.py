@@ -177,3 +177,26 @@ def extractSyncReadData(groupSyncRead, DXL_IDS, dT):
             dT.current[i] = groupSyncRead.getData(DXL_IDS[i], ADDR_PRESENT_CURR, LEN_PRESENT_CURR)
         except:
             print("[ID:%03d] groupSyncRead getdata failed" % (i))
+
+
+def setHomingOffset(portHandler,packetHandler, DXL_IDS):
+    #read present position
+    for id in DXL_IDS:
+        disable_torque(portHandler, packetHandler, id)
+        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, id, HOMING_OFFSET_ADDRESS, 0)
+        dxl_present_pos = get_present_pos(id, portHandler, packetHandler)
+        print("present position of motor %d is %d" % (id, dxl_present_pos))
+        if dxl_present_pos > 0:
+            homing_offset = (-dxl_present_pos)
+        elif dxl_present_pos < 0:
+            homing_offset = dxl_present_pos
+        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, id, HOMING_OFFSET_ADDRESS, homing_offset)
+        if dxl_comm_result != COMM_SUCCESS:
+            #print failed to set homing offset
+            print("failed to set homing offset with result %s" % packetHandler.getTxRxResult(dxl_comm_result))
+        else:
+            #print succeeded to set homing offset
+            print("succeeded to set homing offset")
+        enable_torque(portHandler, packetHandler, id)
+        print("present position of motor %d is %d" % (id, get_present_pos(id, portHandler, packetHandler)))
+        
