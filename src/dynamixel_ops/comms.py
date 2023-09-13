@@ -80,7 +80,7 @@ def clearBW(groupBulkWrite):
     groupBulkWrite.clearParam()
 
 def add_paramBW(groupBulkWrite, id, param_addr, param_len, param_val):
-    # Allocate goal position value into byte array
+    # Allocate goal position value into byte
     if param_len == 4:
         param_val_array = [DXL_LOBYTE(DXL_LOWORD(param_val)), 
                             DXL_HIBYTE(DXL_LOWORD(param_val)), 
@@ -165,7 +165,7 @@ def clearSR(groupSyncRead):
     groupSyncRead.clearParam()
 
 def init_ids(dT, DXL_IDS):
-    print(DXL_IDS)
+    # print(DXL_IDS)
     dT.id = DXL_IDS
     
 

@@ -183,8 +183,8 @@ ${catkin_INCLUDE_DIRS}
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 catkin_install_python(PROGRAMS
-scripts/control_dynamixel_current.py
-scripts/publish_dynamixel_data_write_current.py
+scripts/control_dynamixel.py
+scripts/publish_dynamixel_data_write_control.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 ## Mark executables for installation
