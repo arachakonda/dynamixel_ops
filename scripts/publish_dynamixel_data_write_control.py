@@ -91,6 +91,10 @@ def convert_to_range(pulses, velocity, current):
 
     # Convert the pulses to radians
     for i in range(len(pulses_list)):
+        if pulses_list[i] > 1048575:
+            # Convert the number from 32-bit unsigned to 32-bit signed
+            pulses_list[i] = -(4294967295 - pulses_list[i] + 1)
+            
         pulses_list[i] = pulses_list[i] * 0.001533981
 
     # If velocity value is greater than 2047, then it is a negative number

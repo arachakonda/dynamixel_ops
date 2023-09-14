@@ -185,7 +185,7 @@ def setHomingOffset(portHandler,packetHandler, DXL_IDS):
         disable_torque(portHandler, packetHandler, id)
         dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, id, HOMING_OFFSET_ADDRESS, 0)
         dxl_present_pos = get_present_pos(id, portHandler, packetHandler)
-        print("present position of motor %d is %d" % (id, dxl_present_pos))
+        #print("present position of motor %d is %d" % (id, dxl_present_pos))
         if dxl_present_pos > 0:
             homing_offset = (-dxl_present_pos)
         elif dxl_present_pos < 0:
@@ -198,5 +198,5 @@ def setHomingOffset(portHandler,packetHandler, DXL_IDS):
             #print succeeded to set homing offset
             print("succeeded to set homing offset")
         enable_torque(portHandler, packetHandler, id)
-        print("present position of motor %d is %d" % (id, get_present_pos(id, portHandler, packetHandler)))
+        #print("present position of motor %d is %d" % (id, get_present_pos(id, portHandler, packetHandler)))
         
